@@ -1,2 +1,171 @@
-# telegram-chat-aggregator
-Corporate Telegram Chat Aggregator
+# Telegram Chat Aggregator
+
+Система автоматического сбора корпоративных переписок
+в Telegram.
+
+Учебный проект в рамках прохождения практики Octagon.
+
+## Возможности
+
+- Сбор текстовых сообщений.
+- Сохранение информации об отправителях.
+- Обработка отредактированных сообщений.
+- Сохранение фотографий и документов.
+- Обработка реакций.
+- Хранение данных в PostgreSQL.
+- Интерфейс администратора.
+- Выгрузка переписок за выбранный период.
+- Экспорт в JSON, CSV и ZIP.
+- Контроль доступа.
+
+## Технологии
+
+- Python
+- Aiogram 3
+- Telegram Bot API
+- PostgreSQL
+- SQLAlchemy
+- psycopg2-binary
+- python-dotenv
+- Pytest
+- WSL 2 / Ubuntu
+
+## Установка
+
+```bash
+git clone https://github.com/NAZIROV07/telegram-chat-aggregator.git
+cd telegram-chat-aggregator
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+## Настройка PostgreSQL
+
+Создать пользователя и базу данных PostgreSQL:
+
+```sql
+CREATE USER tg_aggregator;
+CREATE DATABASE telegram_aggregator_db OWNER tg_aggregator;
+```
+
+Установить пароль пользователю через команду psql:
+
+```
+\password tg_aggregator
+```
+
+Таблицы автоматически создаются при запуске приложения.
+
+## Настройка окружения
+
+Создать файл .env на основе .env.example:
+
+```bash
+cp .env.example .env
+```
+
+Пример заполнения:
+
+```ini
+BOT_TOKEN=your_bot_token
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=telegram_aggregator_db
+DB_USER=tg_aggregator
+DB_PASSWORD=your_database_password
+
+ADMIN_IDS=123456789
+ALLOWED_CHAT_IDS=-1001234567890
+
+STORAGE_DIR=storage
+EXPORT_DIR=exports
+TIMEZONE=UTC
+```
+
+| Параметр | Описание |
+|---|---|
+| BOT_TOKEN | Токен Telegram-бота от BotFather |
+| DB_HOST | Адрес PostgreSQL |
+| DB_PORT | Порт PostgreSQL |
+| DB_NAME | Название базы данных |
+| DB_USER | Пользователь PostgreSQL |
+| DB_PASSWORD | Пароль базы данных |
+| ADMIN_IDS | ID администраторов через запятую |
+| ALLOWED_CHAT_IDS | ID разрешённых групп через запятую |
+| STORAGE_DIR | Папка хранения вложений |
+| EXPORT_DIR | Папка временных архивов |
+| TIMEZONE | Часовой пояс выгрузки |
+
+## Запуск
+
+```bash
+sudo service postgresql start
+source venv/bin/activate
+python -m app.main
+```
+
+Добавить бота в согласованную группу
+и назначить администратором для получения реакций.
+
+Команды /myid и /chatid позволяют узнать необходимые ID.
+Для использования /chatid сначала настроить ADMIN_IDS.
+
+## Команды бота
+
+| Команда | Назначение |
+|---|---|
+| /start | Главное меню |
+| /help | Справка |
+| /myid | Telegram ID пользователя |
+| /chatid | ID группы |
+| /chats | Список доступных групп |
+| /stats | Статистика |
+| /status | Состояние системы |
+| /export | Выгрузка переписки |
+
+## Пример выгрузки
+
+```
+/export -1001234567890 2026-11-01 2026-11-30
+```
+
+Обе указанные даты включаются в период выгрузки.
+
+Архив содержит сообщения в форматах JSON и CSV,
+метаданные, реакции и доступные вложения.
+
+## Тестирование
+
+```bash
+python -m pytest tests/ -v
+```
+
+## Архитектура
+
+Подробное описание: [docs/architecture.md](docs/architecture.md).
+
+## Ограничения
+
+- Бот не загружает переписки до начала сбора.
+- Доступность реакций зависит от Telegram Bot API.
+- Размер файлов ограничен возможностями Telegram Bot API.
+- Защищённые сообщения не собираются.
+
+## Безопасность
+
+Сбор данных осуществляется только в согласованных группах
+с уведомлением участников.
+
+Токены, пароли, переписки и выгруженные архивы
+не публикуются в GitHub.
+
+## Статус проекта
+
+Основные модули реализованы.
+Локальные автоматические тесты успешно пройдены.
+Интеграционное тестирование с Telegram API ожидает
+устранения ошибок подключения.

@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message,
     FSInputFile,
@@ -64,19 +65,20 @@ async def require_admin(message):
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [
-            KeyboardButton(text="/chats"),
-            KeyboardButton(text="/stats")
+            KeyboardButton(text="📂 Мои чаты"),
+            KeyboardButton(text="📊 Статистика")
         ],
         [
-            KeyboardButton(text="/export"),
-            KeyboardButton(text="/status")
+            KeyboardButton(text="📥 Выгрузить переписку")
         ],
         [
-            KeyboardButton(text="/help"),
-            KeyboardButton(text="/myid")
+            KeyboardButton(text="🟢 Состояние системы"),
+            KeyboardButton(text="ℹ️ Помощь")
         ]
     ],
-    resize_keyboard=True
+    resize_keyboard=True,
+    is_persistent=True,
+    input_field_placeholder="Выберите действие"
 )
 
 
@@ -87,9 +89,12 @@ async def start_command(message: Message):
         return
 
     await message.answer(
-        "Добро пожаловать в Corporate Chat Aggregator!\n\n"
-        "Система сбора корпоративных переписок.\n"
-        "Выберите необходимое действие.",
+        "👋 Добро пожаловать!\n\n"
+        "Corporate Chat Aggregator\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Система сбора и анализа корпоративных "
+        "переписок Telegram.\n\n"
+        "Выберите необходимое действие в меню 👇",
         reply_markup=menu
     )
 
@@ -310,21 +315,19 @@ def update_export_status(log_id, status, count):
 @router.message(Command("export"), F.chat.type == "private")
 async def export_command(
     message: Message,
-    command: CommandObject
+    command: CommandObject,
+    state: FSMContext
 ):
-
     if not await require_admin(message):
         return
 
     if not command.args:
-        await message.answer(
-            "Для выгрузки сначала используй /chats.\n\n"
-            "Затем отправь команду:\n"
-            "/export CHAT_ID YYYY-MM-DD YYYY-MM-DD\n\n"
-            "Пример:\n"
-            "/export -1001234567890 2026-11-01 2026-11-24"
-        )
+        from app.bot.export_ui import begin_export
+
+        await begin_export(message, state)
         return
+
+    await state.clear()
 
     try:
         chat_id, date_from, date_to = parse_export_args(
@@ -333,15 +336,38 @@ async def export_command(
 
     except ValueError:
         await message.answer(
-            "Неверный формат команды или периода."
+            "❌ Неверный формат команды или периода."
         )
         return
 
-    if chat_id not in ALLOWED_CHAT_IDS:
-        await message.answer("Этот чат недоступен.")
+    await send_export(
+        message,
+        message.from_user,
+        chat_id,
+        date_from,
+        date_to
+    )
+
+
+async def send_export(
+    message,
+    user,
+    chat_id,
+    date_from,
+    date_to
+):
+    if (
+        message.chat.type != "private"
+        or user.id not in ADMIN_IDS
+        or message.chat.id != user.id
+        or chat_id not in ALLOWED_CHAT_IDS
+    ):
+        await message.answer("🔒 Доступ запрещён.")
         return
 
-    await message.answer("Подготавливаю архив...")
+    progress = await message.answer(
+        "⏳ Формирую архив переписки..."
+    )
 
     path = None
     log_id = None
@@ -351,29 +377,35 @@ async def export_command(
     try:
         path, count, log_id = await asyncio.to_thread(
             prepare_export,
-            message.from_user,
+            user,
             chat_id,
             date_from,
             date_to
         )
 
         if path.stat().st_size > MAX_EXPORT_SIZE:
-            await message.answer(
-                "Архив слишком большой. "
-                "Выбери более короткий период."
+            await progress.edit_text(
+                "⚠️ Архив слишком большой.\n"
+                "Выберите более короткий период."
             )
             return
 
         await message.answer_document(
             document=FSInputFile(path),
             caption=(
-                "Выгрузка успешно создана.\n"
-                f"Количество сообщений: {count}\n"
-                "Форматы: JSON, CSV, ZIP"
+                "✅ Выгрузка успешно создана!\n\n"
+                f"📅 С {date_from:%d.%m.%Y}\n"
+                f"📅 По {date_to - timedelta(days=1):%d.%m.%Y}\n"
+                f"💬 Сообщений: {count}\n"
+                "📦 Форматы: JSON, CSV, ZIP"
             )
         )
 
         status = "completed"
+
+        await progress.edit_text(
+            "✅ Архив подготовлен и отправлен."
+        )
 
     except Exception as error:
         logger.error(
@@ -382,7 +414,7 @@ async def export_command(
         )
 
         await message.answer(
-            "Не удалось создать или отправить выгрузку."
+            "❌ Не удалось сформировать или отправить архив."
         )
 
     finally:

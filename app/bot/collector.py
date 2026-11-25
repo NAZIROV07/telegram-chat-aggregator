@@ -32,7 +32,6 @@ def is_allowed_chat(chat):
 
 
 @router.message(F.chat.type.in_({"group", "supergroup"}))
-@router.edited_message(F.chat.type.in_({"group", "supergroup"}))
 async def collect_message(message: Message, bot: Bot):
 
     if not is_allowed_chat(message.chat):
@@ -241,4 +240,29 @@ async def collect_reaction_count(
         "Reaction counts updated: chat=%s message=%s",
         event.chat.id,
         event.message_id
+    )
+
+#Обработка отредактированных сообщений
+
+@router.edited_message()
+async def collect_edited_message(message: Message, bot: Bot):
+
+    if not is_allowed_chat(message.chat):
+        return
+
+    if message.has_protected_content:
+        return
+
+    logger.info(
+        "Edited message received: chat=%s message=%s",
+        message.chat.id,
+        message.message_id
+    )
+
+    await collect_message(message, bot)
+
+    logger.info(
+        "Edited message saved: chat=%s message=%s",
+        message.chat.id,
+        message.message_id
     )

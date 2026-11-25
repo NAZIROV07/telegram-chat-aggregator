@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import select, delete, update
 from sqlalchemy.dialects.postgresql import insert
 
@@ -93,6 +94,16 @@ def save_message(
     reply_to_message_id=None,
     edited_at=None
 ):
+    if isinstance(sent_at, (int, float)):
+        sent_at = datetime.fromtimestamp(
+            sent_at, tz=timezone.utc
+        )
+
+    if isinstance(edited_at, (int, float)):
+        edited_at = datetime.fromtimestamp(
+            edited_at, tz=timezone.utc
+        )
+
     return upsert(
         db,
         Message,

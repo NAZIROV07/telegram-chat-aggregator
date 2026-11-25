@@ -20,8 +20,7 @@ from app.config import (
 from app.db.db import Base, engine
 from app.db import models
 
-from app.bot import admin, collector
-
+from app.bot import admin, collector, export_ui
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +34,7 @@ def create_dispatcher():
     dp = Dispatcher()
 
     dp.include_router(admin.router)
+    dp.include_router(export_ui.router)
     dp.include_router(collector.router)
 
     return dp

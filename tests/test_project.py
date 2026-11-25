@@ -101,3 +101,27 @@ def test_invalid_dates():
 def test_csv_protection():
     assert safe_csv("=1+1") == "'=1+1"
     assert safe_csv("Hello") == "Hello"
+
+def test_edited_message_timestamp(monkeypatch):
+    from datetime import datetime, timezone
+    from app.db import crud
+
+    monkeypatch.setattr(
+        crud,
+        "upsert",
+        lambda db, model, values, conflict_columns: values
+    )
+
+    result = crud.save_message(
+        db=None,
+        telegram_message_id=13,
+        chat_id=-1001234567890,
+        sent_at=1795592496,
+        edited_at=1795592504,
+        message_type="text",
+        text="Edited message"
+    )
+
+    assert isinstance(result["sent_at"], datetime)
+    assert isinstance(result["edited_at"], datetime)
+    assert result["edited_at"].tzinfo == timezone.utc
